@@ -1,483 +1,582 @@
-# Terraform-Modules-Hands-On
+# Terraform Modules
 
-Module 6 — Modules Deep Dive
-Why modules exist
-Parent vs Child modules
-Inputs / Outputs
-Module structure
-Reusable modules
-Registry modules
-Versioning
-Module design patterns
-
-
-# WHY MODULES EXIST
+## Why Modules Exist
 
 Let's start with a real scenario.
 
-Imagine your company has:
-'''
-Dev
-QA
-Stage
-Prod
-'''
-Each environment requires:
-'''
-VPC
-Subnets
-Security Groups
-EC2
-'''
-Without modules:
+Imagine your company has multiple environments:
 
+- Dev
+- QA
+- Stage
+- Prod
+
+Each environment requires:
+
+- VPC
+- Subnets
+- Security Groups
+- EC2
+
+### Without Modules
+
+```text
 dev.tf
 qa.tf
 stage.tf
 prod.tf
+```
 
-Each file:
+Each file contains approximately:
 
+```text
 500 lines
+```
 
 Total:
 
+```text
 2000+ lines
+```
 
-Nightmare.
+Result: **Maintenance nightmare.**
 
-# Real-world Analogy
+---
 
-Think:
+## Real-World Analogy
 
-Without modules:
+### Without Modules
 
 Building every car from raw metal.
 
-With modules:
+### With Modules
 
-Using reusable engine,
-wheels,
-doors,
-chassis.
+Using reusable components:
 
-Terraform modules are reusable infrastructure components.
+- Engine
+- Wheels
+- Doors
+- Chassis
 
-# WHAT IS A MODULE?
+Terraform modules are **reusable infrastructure components**.
 
-## A module is simply:
+---
 
-## A collection of Terraform files that performs a specific task.
+# What Is a Module?
 
-Example:
+A module is simply:
 
-VPC Module
+> A collection of Terraform files that performs a specific task.
+
+### Example: VPC Module
 
 Creates:
-  VPC
-  Subnets
-  Route Tables
-  IGW
 
-Then reused everywhere.
+- VPC
+- Subnets
+- Route Tables
+- Internet Gateway (IGW)
 
-# IMPORTANT FACT
+Then it can be reused across multiple projects and environments.
+
+---
+
+## Important Fact
 
 Everything in Terraform is a module.
 
-Even:
+Even your current Terraform project folder is considered a:
 
-root folder
+**Root Module**
 
-is actually the:
+---
 
-Root Module
+# Root Module vs Child Module
 
-# ROOT MODULE vs CHILD MODULE
+This is a very common interview question.
 
-### Interview favorite.
+## Root Module
 
-Root Module
+Your current Terraform project:
 
-Current project:
-
+```text
 terraform-prod-lab/
 
-main.tf
+├── main.tf
+├── variables.tf
+└── outputs.tf
+```
 
-variables.tf
+This entire directory is called the:
 
-outputs.tf
+**Root Module**
 
-This is:
+---
 
-Root Module
-Child Module
+## Child Module
 
 Example:
-"""
+
+```text
 modules/
 
-vpc/
+└── vpc/
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
+```
 
-main.tf
+This is a reusable module.
 
-variables.tf
+### Relationship
 
-outputs.tf
-
-"""
-
-Reusable module.
-
-Relationship:
-"""
+```text
 Root Module
-
-     ↓
-
+    ↓
 VPC Module
-
-     ↓
-
+    ↓
 Creates VPC
-"""
+```
 
-# VISUAL ARCHITECTURE
- 
-Current:
+---
 
+# Visual Architecture
+
+### Before
+
+```text
 main.tf
 
-1000 lines
+1000+ lines
+```
 
-Target:
+### After
 
-root
+```text
+root/
 
-'''
 ├── modules
-
 │   ├── vpc
-
 │   ├── ec2
-
 │   └── security-group
-
+│
 └── environments
-'''
+```
 
-Production standard.
+This is a common production-grade structure.
 
-# FIRST MODULE CREATION
+---
 
-Let's convert your VPC into module.
+# First Module Creation
 
-Create Folder
+Let's convert a VPC configuration into a module.
+
+### Create Folder Structure
+
+```text
 modules/
 
-└── vpc
+└── vpc/
+    ├── main.tf
+    ├── variables.tf
+    └── outputs.tf
+```
 
-Inside:
+---
 
-modules/vpc/
-'''
-main.tf
+# Module Variables
 
-variables.tf
+**modules/vpc/variables.tf**
 
-outputs.tf
-'''
-
-# MODULE VARIABLES
-
-modules/vpc/variables.tf
-
+```hcl
 variable "vpc_cidr" {
- type = string
+  type = string
 }
+```
 
-# MODULE RESOURCE
+---
 
-modules/vpc/main.tf
+# Module Resource
 
+**modules/vpc/main.tf**
+
+```hcl
 resource "aws_vpc" "main" {
 
- cidr_block = var.vpc_cidr
+  cidr_block = var.vpc_cidr
 
- tags = {
-
-   Name = "module-vpc"
-
- }
+  tags = {
+    Name = "module-vpc"
+  }
 
 }
-# MODULE OUTPUT
+```
 
-modules/vpc/outputs.tf
+---
 
+# Module Output
+
+**modules/vpc/outputs.tf**
+
+```hcl
 output "vpc_id" {
-
- value = aws_vpc.main.id
-
+  value = aws_vpc.main.id
 }
+```
 
-# CALLING MODULE
+---
 
-Root module:
+# Calling a Module
 
+From the Root Module:
+
+```hcl
 module "vpc" {
 
- source = "./modules/vpc"
+  source = "./modules/vpc"
 
- vpc_cidr = "10.0.0.0/16"
+  vpc_cidr = "10.0.0.0/16"
 
 }
+```
 
-Terraform:
-'''
-Root
+Terraform workflow:
 
-↓
-
+```text
+Root Module
+    ↓
 Calls VPC Module
-
-↓
-
+    ↓
 Creates VPC
-'''
+```
 
-# ACCESSING OUTPUTS
+---
+
+# Accessing Outputs
 
 Module exposes:
 
+```hcl
 output "vpc_id"
+```
 
-Consume:
+Consume it using:
 
+```hcl
 module.vpc.vpc_id
+```
 
 Example:
 
+```hcl
 resource "aws_subnet" "public" {
 
- vpc_id = module.vpc.vpc_id
+  vpc_id = module.vpc.vpc_id
 
 }
+```
 
-# INTERVIEW QUESTION
+---
 
-### Q: Difference between resource output and module output?
+# Interview Question
 
-### A: Resource output exposes values from resources. Module output exposes values from a module to its parent module.
+## Q: Difference Between Resource Output and Module Output?
 
-# MODULE INPUTS & OUTPUTS
+### Answer
 
-Think:
+**Resource Output**
 
-Module
+Exposes values from resources.
 
+Example:
+
+```hcl
+aws_vpc.main.id
+```
+
+**Module Output**
+
+Exposes values from a module to its parent module.
+
+Example:
+
+```hcl
+module.vpc.vpc_id
+```
+
+---
+
+# Module Inputs and Outputs
+
+Think of a module like a function.
+
+```text
 INPUTS
- ↓
-WORK
- ↓
+   ↓
+ MODULE
+   ↓
 OUTPUTS
+```
 
+### Python Example
 
-# PRODUCTION MODULE STRUCTURE
+```python
+def create_vpc(cidr):
+    return vpc_id
+```
 
-Most companies use:
-'''
+### Terraform Equivalent
+
+```hcl
+module "vpc" {
+  vpc_cidr = "10.0.0.0/16"
+}
+```
+
+Same concept.
+
+---
+
+# Production Module Structure
+
+Most organizations use something similar to:
+
+```text
 modules/
 
 ├── vpc
-
 │   ├── main.tf
-
 │   ├── variables.tf
-
 │   ├── outputs.tf
-
 │   └── README.md
-
+│
 ├── ec2
-
 ├── alb
-
 ├── rds
+└── eks
+```
 
-├── eks
-'''
+---
 
-# MODULE VERSIONING
+# Module Versioning
 
-Huge interview topic.
+A major interview topic.
 
 Imagine:
 
+```text
 VPC Module v1
+```
 
-used by:
+Used by:
 
+```text
 20 projects
+```
 
-You modify module.
+You modify the module.
 
 Everything breaks.
 
-Need versioning.
+Versioning helps prevent this.
 
-Example:
+### Git Source Example
 
+```hcl
 module "vpc" {
 
- source = "git::https://repo.git"
-
- version = "1.2.0"
+  source  = "git::https://repo.git"
+  version = "1.2.0"
 
 }
+```
 
-Or registry:
+### Terraform Registry Example
 
+```hcl
 module "vpc" {
 
- source = "terraform-aws-modules/vpc/aws"
-
- version = "5.1.0"
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.1.0"
 
 }
+```
 
-Production requirement.
+Versioning is a production requirement.
 
-# TERRAFORM REGISTRY
+---
 
-Official reusable modules.
+# Terraform Registry
 
-Example:
+Terraform provides an official registry of reusable modules.
 
-Terraform Registry
+Popular modules include:
 
-Popular:
+- VPC
+- EKS
+- RDS
+- ALB
+- IAM
 
-VPC
-EKS
-RDS
-ALB
-IAM
+---
 
-# BUILDING A PROPER EC2 MODULE
+# Building a Proper EC2 Module
 
-Module:
+## Module Structure
 
+```text
 modules/ec2
+```
 
-Variables:
+### Variables
 
+```hcl
 variable "instance_type" {}
-
 variable "subnet_id" {}
-
 variable "name" {}
+```
 
-Resource:
+### Resource
 
+```hcl
 resource "aws_instance" "this" {
 
- ami="ami-xxxx"
+  ami           = "ami-xxxx"
+  instance_type = var.instance_type
+  subnet_id     = var.subnet_id
 
- instance_type=var.instance_type
-
- subnet_id=var.subnet_id
-
- tags={
-
-  Name=var.name
-
- }
+  tags = {
+    Name = var.name
+  }
 
 }
+```
 
-Output:
+### Output
 
+```hcl
 output "instance_id" {
-
- value=
- aws_instance.this.id
-
+  value = aws_instance.this.id
 }
+```
 
-Root:
+### Root Module Usage
 
+```hcl
 module "app_server" {
 
- source="./modules/ec2"
+  source = "./modules/ec2"
 
- instance_type="t2.micro"
-
- subnet_id=module.vpc.public_subnet
-
- name="app"
+  instance_type = "t2.micro"
+  subnet_id     = module.vpc.public_subnet
+  name          = "app"
 
 }
-# MODULE DESIGN PATTERNS (3+ YEAR ENGINEER)
-## Pattern 1 — One Responsibility
+```
 
-Good:
+---
 
-VPC Module
+# Module Design Patterns (3+ Year Engineer Level)
 
-Creates:
+## Pattern 1 — Single Responsibility
 
-Only network
+### Good
 
-Bad:
+VPC Module creates only:
 
-VPC
+- VPC
+- Subnets
+- Route Tables
+- Internet Gateway
 
-EC2
+### Bad
 
-RDS
+One giant module creates:
 
-IAM
+- VPC
+- EC2
+- RDS
+- IAM
 
-One giant module.
+Keep modules focused.
+
+---
 
 ## Pattern 2 — Generic Modules
 
-Bad:
+### Bad
 
+```text
 prod-vpc-module
+```
 
-Good:
+### Good
 
+```text
 vpc-module
+```
 
-Inputs decide behavior.
+Use inputs to control behavior instead of creating environment-specific modules.
 
-## Pattern 3 — Output Only Needed Values
+---
 
-Bad:
+## Pattern 3 — Output Only What Is Needed
 
+### Bad
+
+```text
 50 outputs
+```
 
-Good:
+### Good
 
+```text
 vpc_id
-
 subnet_ids
+```
 
-Only what's needed.
+Expose only necessary values.
+
+---
 
 ## Pattern 4 — Strong Typing
 
-Good:
+### Good
 
+```hcl
 variable "subnets" {
-
- type=list(string)
-
+  type = list(string)
 }
+```
 
-Avoid:
+### Avoid
 
-type=any
+```hcl
+type = any
+```
+
+Use explicit types whenever possible.
+
+---
+
+# Key Takeaways
+
+✅ Modules improve reusability
+
+✅ Reduce code duplication
+
+✅ Simplify maintenance
+
+✅ Make infrastructure scalable
+
+✅ Enable standardization across environments
+
+✅ Follow single-responsibility design
+
+✅ Use versioning in production
+
+✅ Expose only necessary outputs
+
+✅ Prefer strong typing over `any`
+
+Terraform modules are the foundation of scalable and maintainable Infrastructure as Code (IaC).
