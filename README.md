@@ -115,7 +115,7 @@ Root Module
 Child Module
 
 Example:
-
+"""
 modules/
 
 vpc/
@@ -126,10 +126,12 @@ variables.tf
 
 outputs.tf
 
+"""
+
 Reusable module.
 
 Relationship:
-'''
+"""
 Root Module
 
      ↓
@@ -139,7 +141,7 @@ VPC Module
      ↓
 
 Creates VPC
-'''
+"""
 
 # VISUAL ARCHITECTURE
  
